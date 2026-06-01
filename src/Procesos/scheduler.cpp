@@ -1,6 +1,7 @@
 #include "scheduler.h"
 #include <iostream>
 #include <iomanip>
+#include <cassert>
 
 // Constructor
 Scheduler::Scheduler() 
@@ -9,11 +10,17 @@ Scheduler::Scheduler()
 
 // Destructor
 Scheduler::~Scheduler() {
+    readyQueue = std::queue<PCB*>();   // vaciado sin desreferenciar
+    for (PCB* p : allProcesses) delete p;
+    allProcesses.clear();
+}
+
+/*VIEJOOOOO: Scheduler::~Scheduler() {
     for (PCB* process : allProcesses) {
         delete process;
     }
     allProcesses.clear();
-}
+}*/
 
 // Crear un nuevo proceso
 PCB* Scheduler::createProcess(const std::string& name, int cpuTimeNeeded, int quantum) {
@@ -28,10 +35,15 @@ PCB* Scheduler::createProcess(const std::string& name, int cpuTimeNeeded, int qu
 
 // Agregar proceso a la cola de listos
 void Scheduler::addToReadyQueue(PCB* process) {
+    assert(process->getState() == READY);
+    readyQueue.push(process);
+}
+
+/*VIEJOOO: void Scheduler::addToReadyQueue(PCB* process) {
     if (process) {
         readyQueue.push(process);
     }
-}
+}*/
 
 // Transición: Nuevo -> Listo
 void Scheduler::transitionNewToReady(PCB* process) {
@@ -64,12 +76,22 @@ void Scheduler::transitionRunningToReady(PCB* process) {
 }
 
 // Transición: Ejecución -> Terminado
+
 void Scheduler::transitionRunningToTerminated(PCB* process) {
+    if (process && process->getState() == RUNNING) {
+        process->setState(TERMINATED);
+        std::cout << "[COMPLETADO] Proceso \"" << process->name
+                  << "\" ha completado su ejecución." << std::endl;
+        runningProcess = nullptr;
+    }
+}
+
+/*VIEJOOO:void Scheduler::transitionRunningToTerminated(PCB* process) {
     if (process && process->getState() == RUNNING) {
         process->setState(TERMINATED);
         runningProcess = nullptr;
     }
-}
+}*/
 
 // Seleccionar el siguiente proceso a ejecutar (Round-Robin)
 void Scheduler::scheduleNextProcess() {
@@ -104,7 +126,14 @@ void Scheduler::executeTimeSlice(int timeSlice) {
                   << " / Tiempo restante: " << runningProcess->cpuTimeRemaining << std::endl;
         
         // Verificar si el proceso terminó
+
         if (runningProcess->isTimeFinished()) {
+            transitionRunningToTerminated(runningProcess);
+        } else {
+            transitionRunningToReady(runningProcess);
+        }
+        
+        /*VIEJOOO: if (runningProcess->isTimeFinished()) {
             transitionRunningToTerminated(runningProcess);
             std::cout << "[COMPLETADO] Proceso \"" << runningProcess->name 
                       << "\" ha completado su ejecución." << std::endl;
@@ -113,7 +142,7 @@ void Scheduler::executeTimeSlice(int timeSlice) {
             if (runningProcess->cpuTimeRemaining > 0) {
                 transitionRunningToReady(runningProcess);
             }
-        }
+        }*/
     }
     
     currentTime += timeSlice;
@@ -126,7 +155,9 @@ void Scheduler::runScheduler(int totalSimulationTime) {
     std::cout << std::string(60, '=') << std::endl;
     
     while (currentTime < totalSimulationTime && (!readyQueue.empty() || runningProcess != nullptr)) {
-        executeTimeSlice(5);  // Quantum de 5 unidades de tiempo
+        //VIEJOOO: executeTimeSlice(5);  // Quantum de 5 unidades de tiempo
+        int quantum = (runningProcess != nullptr) ? runningProcess->timeQuantum : 5;
+        executeTimeSlice(quantum);
         
         if (!readyQueue.empty()) {
             std::cout << "[COLA] Procesos listos: " << readyQueue.size() << std::endl;
