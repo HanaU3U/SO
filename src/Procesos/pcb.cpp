@@ -20,7 +20,8 @@ void PCB::setState(ProcessState newState) {
     state = newState;
     
     // Log de cambio de estado
-    std::string stateNames[] = {"NEW", "READY", "RUNNING", "TERMINATED"};
+    // VIEJOOOO: std::string stateNames[] = {"NEW", "READY", "RUNNING", "TERMINATED"};
+    static const std::string stateNames[] = {"NEW", "READY", "RUNNING", "TERMINATED"};
     std::cout << "[TRANSICIÓN] Proceso " << name << " (PID: " << pid 
               << "): " << stateNames[oldState] << " -> " 
               << stateNames[newState] << std::endl;
