@@ -17,7 +17,7 @@ struct PCB {
     int pid;                    // Process ID
     std::string name;           // Nombre del proceso
     ProcessState state;         // Estado actual del proceso
-    int priority;               // Prioridad (0=highest, 10=lowest)
+    //int priority;               // Prioridad (0=highest, 10=lowest) DE MOMENTO ESTE CABRÓN NO SE USA, ES PARA COLAS MULTINIVEL
     int cpuTimeRemaining;       // Tiempo de CPU restante (en unidades de tiempo)
     int cpuTimeUsed;            // Tiempo de CPU utilizado
     time_t creationTime;        // Timestamp de creación
