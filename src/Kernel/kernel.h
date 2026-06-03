@@ -3,6 +3,9 @@
 
 #include "../Procesos/scheduler.h"
 #include "../Memoria/memoria.h"
+#include "../Archivos/filesystem.h"
+#include "../Entrada_Salida/dispositivo.h"
+#include "../Entrada_Salida/interrupciones.h"
 #include <string>
 #include <unordered_map>
 
@@ -44,6 +47,24 @@ public:
     // Ejecución del scheduler
     void ejecutar(int tiempoTotal);
 
+    // Sistema de archivos
+    bool crearDirectorio(const std::string& ruta);
+    bool crearArchivo(const std::string& ruta,
+                      const std::string& tipo,
+                      int tamanoKB,
+                      const std::string& permisos = "rw-");
+    bool abrirArchivo(int pid, const std::string& ruta);
+    bool cerrarArchivo(int pid, const std::string& ruta);
+    void listarDirectorio(const std::string& ruta = "/") const;
+
+    // Entrada/Salida e interrupciones
+    bool registrarDispositivo(const std::string& nombre, const std::string& tipo);
+    bool solicitarIO(int pid,
+                     const std::string& nombreDispositivo,
+                     const std::string& operacion,
+                     int duracionTicks);
+    void imprimirDispositivos() const;
+
     // Diagnóstico
     void imprimirEstado() const;
     void imprimirMemoria() const;
@@ -55,6 +76,10 @@ public:
 private:
     Scheduler    scheduler_;
     GestorMemoria memoria_;
+    SistemaArchivos fs_;
+    GestorES gestorES_;
+    ControladorInterrupciones controladorInterrupciones_;
+    int siguienteBloqueDatos_;
 
     // pid → info de memoria
     std::unordered_map<int, InfoMemoriaProceso> infoMemoria_;

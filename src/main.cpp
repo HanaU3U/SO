@@ -1,6 +1,16 @@
 #include "Kernel/kernel.h"
 #include <iostream>
+
+#if defined(_WIN32)
 #include <windows.h>
+#endif
+
+static void configurarConsolaUtf8() {
+#if defined(_WIN32)
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+#endif
+}
 
 // ─────────────────────────────────────────────────────────────
 //  Helpers de sección
@@ -171,17 +181,47 @@ static void test_swapping() {
 }
 
 // ─────────────────────────────────────────────────────────────
+//  TEST 5: Integración de procesos + sistema de archivos + E/S
+// ─────────────────────────────────────────────────────────────
+static void test_integracion_completa() {
+    seccion("Integracion completa: Procesos + FS + E/S");
+
+    Kernel kernel;
+
+    PCB* p1 = kernel.crearProceso("Proceso-IO-A", 8, 12, 3, true);
+    PCB* p2 = kernel.crearProceso("Proceso-IO-B", 6, 10, 2, true);
+
+    kernel.crearDirectorio("/var");
+    kernel.crearDirectorio("/var/log");
+    kernel.crearArchivo("/var/log/sistema.log", "texto", 8, "rw-");
+    kernel.abrirArchivo(p1->pid, "/var/log/sistema.log");
+
+    kernel.registrarDispositivo("disk0", "disco");
+    kernel.registrarDispositivo("kbd0", "teclado");
+
+    kernel.solicitarIO(p1->pid, "disk0", "lectura de sistema.log", 3);
+    kernel.solicitarIO(p2->pid, "kbd0", "espera de entrada", 2);
+
+    kernel.imprimirDispositivos();
+    kernel.listarDirectorio("/var/log");
+
+    kernel.ejecutar(20);
+    kernel.cerrarArchivo(p1->pid, "/var/log/sistema.log");
+    kernel.imprimirEstado();
+}
+
+// ─────────────────────────────────────────────────────────────
 //  MAIN
 // ─────────────────────────────────────────────────────────────
 int main() {
-    SetConsoleOutputCP(CP_UTF8);
-    SetConsoleCP(CP_UTF8);
+    configurarConsolaUtf8();
 
     test_procesos_paginacion();
     test_segmentacion();
     test_fragmentacion_y_bestfit();
     test_memoria_compartida();
     test_swapping();
+    test_integracion_completa();
 
     std::cout << "\n[OK] Todos los tests completados.\n";
     return 0;

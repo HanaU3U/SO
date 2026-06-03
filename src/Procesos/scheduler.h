@@ -13,6 +13,8 @@ private:
     PCB* runningProcess;                // Proceso actualmente en ejecución
     int nextPID;                        // Próximo PID disponible
     int currentTime;                    // Tiempo actual del simulador
+
+    bool removeFromReadyQueue(int pid);
     
 public:
     // Constructor y Destructor
@@ -35,13 +37,20 @@ public:
     void transitionNewToReady(PCB* process);
     void transitionReadyToRunning(PCB* process);
     void transitionRunningToReady(PCB* process);
+    void transitionRunningToBlocked(PCB* process);
+    void transitionBlockedToReady(PCB* process);
     void transitionRunningToTerminated(PCB* process);
+
+    bool blockProcess(int pid);
+    bool unblockProcess(int pid);
+    PCB* getProcessByPid(int pid) const;
     
     // Utilidades
     void printReadyQueue() const;
     void printProcessStatus() const;
     void printStatistics() const;
     bool hasReadyProcesses() const;
+    bool hasBlockedProcesses() const;
 };
 
 #endif // SCHEDULER_H

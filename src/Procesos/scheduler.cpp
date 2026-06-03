@@ -3,6 +3,24 @@
 #include <iomanip>
 #include <cassert>
 
+bool Scheduler::removeFromReadyQueue(int pid) {
+    std::queue<PCB*> nuevaCola;
+    bool removido = false;
+
+    while (!readyQueue.empty()) {
+        PCB* actual = readyQueue.front();
+        readyQueue.pop();
+        if (!removido && actual->pid == pid) {
+            removido = true;
+            continue;
+        }
+        nuevaCola.push(actual);
+    }
+
+    readyQueue = std::move(nuevaCola);
+    return removido;
+}
+
 // Constructor
 Scheduler::Scheduler() 
     : runningProcess(nullptr), nextPID(1000), currentTime(0) {
@@ -75,6 +93,20 @@ void Scheduler::transitionRunningToReady(PCB* process) {
     }
 }
 
+void Scheduler::transitionRunningToBlocked(PCB* process) {
+    if (process && process->getState() == RUNNING) {
+        process->setState(BLOCKED);
+        runningProcess = nullptr;
+    }
+}
+
+void Scheduler::transitionBlockedToReady(PCB* process) {
+    if (process && process->getState() == BLOCKED) {
+        process->setState(READY);
+        addToReadyQueue(process);
+    }
+}
+
 // Transición: Ejecución -> Terminado
 
 void Scheduler::transitionRunningToTerminated(PCB* process) {
@@ -84,6 +116,43 @@ void Scheduler::transitionRunningToTerminated(PCB* process) {
                   << "\" ha completado su ejecución." << std::endl;
         runningProcess = nullptr;
     }
+}
+
+bool Scheduler::blockProcess(int pid) {
+    PCB* process = getProcessByPid(pid);
+    if (!process || process->getState() == TERMINATED || process->getState() == BLOCKED) {
+        return false;
+    }
+
+    if (runningProcess && runningProcess->pid == pid) {
+        transitionRunningToBlocked(runningProcess);
+        return true;
+    }
+
+    if (process->getState() == READY && removeFromReadyQueue(pid)) {
+        process->setState(BLOCKED);
+        return true;
+    }
+
+    return false;
+}
+
+bool Scheduler::unblockProcess(int pid) {
+    PCB* process = getProcessByPid(pid);
+    if (!process || process->getState() != BLOCKED) {
+        return false;
+    }
+    transitionBlockedToReady(process);
+    return true;
+}
+
+PCB* Scheduler::getProcessByPid(int pid) const {
+    for (PCB* process : allProcesses) {
+        if (process->pid == pid) {
+            return process;
+        }
+    }
+    return nullptr;
 }
 
 /*VIEJOOO:void Scheduler::transitionRunningToTerminated(PCB* process) {
@@ -188,7 +257,7 @@ void Scheduler::printReadyQueue() const {
 
 // Imprimir estado de todos los procesos
 void Scheduler::printProcessStatus() const {
-    std::string stateNames[] = {"NEW", "READY", "RUNNING", "TERMINATED"};
+    std::string stateNames[] = {"NEW", "READY", "RUNNING", "BLOCKED", "TERMINATED"};
     
     std::cout << "\n[ESTADO DE PROCESOS]" << std::endl;
     std::cout << std::left << std::setw(15) << "Nombre" 
@@ -234,4 +303,13 @@ void Scheduler::printStatistics() const {
 // Verificar si hay procesos listos
 bool Scheduler::hasReadyProcesses() const {
     return !readyQueue.empty();
+}
+
+bool Scheduler::hasBlockedProcesses() const {
+    for (const PCB* process : allProcesses) {
+        if (process->getState() == BLOCKED) {
+            return true;
+        }
+    }
+    return false;
 }

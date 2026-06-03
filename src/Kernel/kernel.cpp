@@ -9,6 +9,7 @@ Kernel::Kernel() {
     std::cout << "╔══════════════════════════════════════╗\n";
     std::cout << "║        Mini Kernel iniciado          ║\n";
     std::cout << "╚══════════════════════════════════════╝\n";
+    siguienteBloqueDatos_ = 1;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -40,7 +41,11 @@ PCB* Kernel::crearProceso(const std::string& nombre,
             // Intentar liberar memoria via swapOut de otro proceso
             std::cout << "[KERNEL] RAM insuficiente, intentando swapOut...\n";
             // Busca el primer proceso en swap-out candidates (no running)
-            for (auto& [otherPid, otherInfo] : infoMemoria_) {
+            for (std::unordered_map<int, InfoMemoriaProceso>::iterator itInfo = infoMemoria_.begin();
+                 itInfo != infoMemoria_.end();
+                 ++itInfo) {
+                int otherPid = itInfo->first;
+                InfoMemoriaProceso& otherInfo = itInfo->second;
                 if (otherInfo.usaPaginacion && otherPid != pid) {
                     if (memoria_.swapOut(otherPid)) {
                         ok = memoria_.asignarPaginas(pid, paginas);
@@ -96,6 +101,7 @@ void Kernel::liberarMemoriaProceso(int pid) {
 
 void Kernel::terminarProceso(int pid) {
     std::cout << "\n[KERNEL] Terminando proceso PID=" << pid << "\n";
+    fs_.cerrarTodosArchivosProceso(pid);
     liberarMemoriaProceso(pid);
     // El scheduler limpia el PCB en su destructor
 }
@@ -131,12 +137,121 @@ bool Kernel::swapIn(int pid) {
 // ═══════════════════════════════════════════════════════════════
 void Kernel::ejecutar(int tiempoTotal) {
     std::cout << "\n╔══════════════════════════════════════╗\n";
-    std::cout << "║  Iniciando ejecución del scheduler   ║\n";
+    std::cout << "║  Iniciando ejecución integrada       ║\n";
     std::cout << "╚══════════════════════════════════════╝\n";
-    scheduler_.runScheduler(tiempoTotal);
+
+    for (int tick = 0; tick < tiempoTotal; ++tick) {
+        controladorInterrupciones_.despachar(gestorES_, scheduler_);
+
+        if (scheduler_.hasReadyProcesses() || scheduler_.getRunningProcess() != nullptr) {
+            scheduler_.executeTimeSlice(1);
+        }
+
+        gestorES_.procesarTick();
+        controladorInterrupciones_.despachar(gestorES_, scheduler_);
+
+        if (!scheduler_.hasReadyProcesses() &&
+            scheduler_.getRunningProcess() == nullptr &&
+            !gestorES_.haySolicitudesPendientes() &&
+            !scheduler_.hasBlockedProcesses()) {
+            break;
+        }
+    }
+
     std::cout << "\n╔══════════════════════════════════════╗\n";
     std::cout << "║       Ejecución finalizada           ║\n";
     std::cout << "╚══════════════════════════════════════╝\n";
+}
+
+bool Kernel::crearDirectorio(const std::string& ruta) {
+    const bool ok = fs_.crearDirectorio(ruta);
+    if (!ok) {
+        std::cout << "[KERNEL][FS] No se pudo crear directorio: " << ruta << "\n";
+    }
+    return ok;
+}
+
+bool Kernel::crearArchivo(const std::string& ruta,
+                          const std::string& tipo,
+                          int tamanoKB,
+                          const std::string& permisos) {
+    const bool ok = fs_.crearArchivo(ruta, tipo, tamanoKB, siguienteBloqueDatos_++, permisos);
+    if (!ok) {
+        std::cout << "[KERNEL][FS] No se pudo crear archivo: " << ruta << "\n";
+    }
+    return ok;
+}
+
+bool Kernel::abrirArchivo(int pid, const std::string& ruta) {
+    PCB* proceso = scheduler_.getProcessByPid(pid);
+    if (!proceso || proceso->getState() == TERMINATED) {
+        std::cout << "[KERNEL][FS] PID invalido para abrir archivo: " << pid << "\n";
+        return false;
+    }
+
+    const bool ok = fs_.abrirArchivo(pid, ruta);
+    if (!ok) {
+        std::cout << "[KERNEL][FS] No se pudo abrir archivo: " << ruta << "\n";
+    }
+    return ok;
+}
+
+bool Kernel::cerrarArchivo(int pid, const std::string& ruta) {
+    const bool ok = fs_.cerrarArchivo(pid, ruta);
+    if (!ok) {
+        std::cout << "[KERNEL][FS] No se pudo cerrar archivo: " << ruta << "\n";
+    }
+    return ok;
+}
+
+void Kernel::listarDirectorio(const std::string& ruta) const {
+    fs_.listarDirectorio(ruta);
+}
+
+bool Kernel::registrarDispositivo(const std::string& nombre, const std::string& tipo) {
+    const bool ok = gestorES_.registrarDispositivo(nombre, tipo);
+    if (!ok) {
+        std::cout << "[KERNEL][E/S] No se pudo registrar dispositivo: " << nombre << "\n";
+    }
+    return ok;
+}
+
+bool Kernel::solicitarIO(int pid,
+                         const std::string& nombreDispositivo,
+                         const std::string& operacion,
+                         int duracionTicks) {
+    PCB* proceso = scheduler_.getProcessByPid(pid);
+    if (!proceso || proceso->getState() == TERMINATED) {
+        std::cout << "[KERNEL][E/S] PID invalido para solicitud de E/S: " << pid << "\n";
+        return false;
+    }
+
+    if (!gestorES_.existeDispositivo(nombreDispositivo)) {
+        std::cout << "[KERNEL][E/S] Dispositivo no encontrado: " << nombreDispositivo << "\n";
+        return false;
+    }
+
+    const bool bloqueado = scheduler_.blockProcess(pid);
+    if (!bloqueado) {
+        std::cout << "[KERNEL][E/S] PID " << pid << " no pudo pasar a BLOQUEADO\n";
+        return false;
+    }
+
+    const bool encolada = gestorES_.solicitarIO(pid, nombreDispositivo, operacion, duracionTicks);
+    if (!encolada) {
+        scheduler_.unblockProcess(pid);
+        std::cout << "[KERNEL][E/S] Error encolando solicitud de E/S\n";
+        return false;
+    }
+
+    std::cout << "[KERNEL][E/S] PID " << pid
+              << " bloqueado por solicitud en " << nombreDispositivo
+              << " (" << operacion << ")\n";
+    return true;
+}
+
+void Kernel::imprimirDispositivos() const {
+    gestorES_.imprimirTablaDispositivos();
 }
 
 // ═══════════════════════════════════════════════════════════════

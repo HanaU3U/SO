@@ -9,6 +9,7 @@ enum ProcessState {
     NEW,        // Nuevo
     READY,      // Listo
     RUNNING,    // En ejecución
+    BLOCKED,    // Bloqueado por E/S o recurso
     TERMINATED  // Terminado
 };
 
