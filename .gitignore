@@ -1,0 +1,21 @@
+# Build output
+build/
+
+# Archivos temporales de compilación
+*.o
+*.exe
+*.out
+build_errors.txt
+build_out.txt
+ver.txt
+ver_err.txt
+test.cpp
+
+# VS Code — configuración personal (paths locales, debugger, runner)
+.vscode/settings.json
+.vscode/launch.json
+.vscode/c_cpp_properties.json
+.vscode/tasks.json
+
+# VS Code — sí versionar (extensiones recomendadas)
+!.vscode/extensions.json

@@ -7,7 +7,6 @@ PCB::PCB(int id, const std::string& processName, int totalTime, int quantum)
     : pid(id), 
       name(processName), 
       state(NEW), 
-      priority(5),
       cpuTimeRemaining(totalTime),
       cpuTimeUsed(0),
       creationTime(time(nullptr)),
