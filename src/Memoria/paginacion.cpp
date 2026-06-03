@@ -3,12 +3,17 @@
 #include <iomanip>
 
 // ═══════════════════════════════════════════════════════════════
-//  PAGINACIÓN — asignación de marcos y traducción de direcciones
+//  MEMORIA VIRTUAL — Día 8: Paginación (mapeo lógico → físico)
+//
+//  Cada proceso ve un espacio de direcciones lógico contiguo.
+//  La MMU traduce usando la tabla de páginas del proceso:
 //
 //  Dirección lógica (32 bits simulada):
 //    [ número de página (20 bits) | offset (12 bits) ]
 //  Con TAMANO_PAGINA = 4 KB = 2^12 → offset = dirLogica % 4096
 //                                     página  = dirLogica / 4096
+//
+//  dirFísica = (marcoFísico << OFFSET_BITS) | offset
 // ═══════════════════════════════════════════════════════════════
 
 static constexpr int OFFSET_BITS = 12;   // log2(4096)

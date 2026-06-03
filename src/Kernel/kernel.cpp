@@ -159,3 +159,11 @@ void Kernel::imprimirTablaPaginas(int pid) const {
 void Kernel::imprimirSegmentos(int pid) const {
     memoria_.imprimirSegmentos(pid);
 }
+
+void Kernel::mostrarFragmentacion() const {
+    memoria_.mostrarFragmentacion();
+}
+
+void Kernel::compactar() {
+    memoria_.compactar();
+}

@@ -4,6 +4,8 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
+#include <array>
+#include <climits>
 #include <cstdint>
 
 // ─────────────────────────────────────────────
@@ -70,14 +72,23 @@ struct RegionCompartida {
 };
 
 // ─────────────────────────────────────────────
+//  Algoritmos de asignación de memoria (Día 6)
+// ─────────────────────────────────────────────
+enum AlgoritmoAsignacion {
+    FIRST_FIT,  // Primer bloque con espacio suficiente
+    BEST_FIT    // Bloque más pequeño que alcance (minimiza desperdicio)
+};
+
+// ─────────────────────────────────────────────
 //  Gestor de Memoria
 // ─────────────────────────────────────────────
 class GestorMemoria {
 public:
     GestorMemoria();
 
-    // --- Alocación contigua ---
-    int  asignarContiguo(int pid, int tamanoKB);   // Retorna dirección base, -1 si falla
+    // --- Alocación contigua (Día 6: First-Fit / Best-Fit) ---
+    int  asignarContiguo(int pid, int tamanoKB,
+                         AlgoritmoAsignacion algo = FIRST_FIT);
     void liberarContiguo(int pid);
     void mostrarMapaMemoria() const;
 
@@ -101,6 +112,10 @@ public:
     bool swapIn(int pid);     // Trae páginas de swap a RAM
     bool hayEspacioRAM(int numPaginas) const;
 
+    // --- Fragmentación (Día 7) ---
+    void mostrarFragmentacion() const;  // Muestra huecos y % frag. externa
+    void compactar();                   // Elimina frag. externa moviendo bloques
+
     // --- Diagnóstico ---
     void imprimirTablaPaginas(int pid) const;
     void imprimirSegmentos(int pid) const;
@@ -108,7 +123,10 @@ public:
     int  memoriaUsadaKB() const;
 
 private:
-    // Alocación contigua
+    // Día 5: Array físico — índice = número de KB, valor = PID dueño (-1 = libre)
+    std::array<int, MEMORIA_TOTAL> celdas_;
+
+    // Alocación contigua (lista de bloques sobre el array físico)
     std::vector<BloqueMemoria> bloques_;
 
     // Segmentación: pid -> lista de segmentos
@@ -128,10 +146,10 @@ private:
     std::vector<RegionCompartida> regionesCompartidas_;
     int siguienteRegionId_;
 
-    // Helpers
+    // Helpers internos
     int  buscarMarcosLibres(int cantidad) const;
-    int  buscarBloqueLibre(int tamano) const;  // First-fit
-    void compactar();
+    int  buscarBloqueLibre(int tamano) const;        // First-Fit (Día 6)
+    int  buscarBloqueLibreBestFit(int tamano) const; // Best-Fit  (Día 6)
     int  asignarSlotSwap();
 };
 

@@ -73,6 +73,39 @@ static void test_segmentacion() {
 }
 
 // ─────────────────────────────────────────────────────────────
+//  TEST 3: Fragmentación, Best-Fit y Compactación (Días 6-7)
+// ─────────────────────────────────────────────────────────────
+static void test_fragmentacion_y_bestfit() {
+    seccion("Fragmentacion, Best-Fit y Compactacion (Dias 6-7)");
+
+    // Usar GestorMemoria directamente para controlar el algoritmo
+    GestorMemoria mem;
+
+    std::cout << "\n--- [FIRST-FIT] Asignando 3 procesos ---\n";
+    mem.asignarContiguo(100, 200, FIRST_FIT);  // PID 100, 200 KB
+    mem.asignarContiguo(101,  50, FIRST_FIT);  // PID 101,  50 KB
+    mem.asignarContiguo(102, 300, FIRST_FIT);  // PID 102, 300 KB
+    mem.mostrarMapaMemoria();
+    mem.mostrarFragmentacion();
+
+    std::cout << "\n--- Liberando PID 100 y PID 102 (crea huecos) ---\n";
+    mem.liberarContiguo(100);
+    mem.liberarContiguo(102);
+    mem.mostrarMapaMemoria();
+    mem.mostrarFragmentacion();
+
+    std::cout << "\n--- [BEST-FIT] Asignando 80 KB (elegiria el hueco mas ajustado) ---\n";
+    mem.asignarContiguo(103, 80, BEST_FIT);
+    mem.mostrarMapaMemoria();
+    mem.mostrarFragmentacion();
+
+    std::cout << "\n--- Compactacion: elimina fragmentacion externa ---\n";
+    mem.compactar();
+    mem.mostrarMapaMemoria();
+    mem.mostrarFragmentacion();
+}
+
+// ─────────────────────────────────────────────────────────────
 //  TEST 3: Memoria compartida entre procesos
 // ─────────────────────────────────────────────────────────────
 static void test_memoria_compartida() {
@@ -146,6 +179,7 @@ int main() {
 
     test_procesos_paginacion();
     test_segmentacion();
+    test_fragmentacion_y_bestfit();
     test_memoria_compartida();
     test_swapping();
 
