@@ -1,0 +1,31 @@
+graph TD
+    %% Componentes principales del kernel
+    Kernel["Kernel"]
+    Scheduler["Scheduler"]
+    GestorMemoria["GestorMemoria"]
+    SistemaArchivos["SistemaArchivos"]
+    GestorES["Gestor de E/S"]
+    ControladorInterrupciones["Controlador de Interrupciones"]
+
+    %% Relaciones
+    Kernel --> Scheduler
+    Kernel --> GestorMemoria
+    Kernel --> SistemaArchivos
+    Kernel --> GestorES
+    Kernel --> ControladorInterrupciones
+
+    %% Componentes internos de Sistema de Archivos
+    NodoDirectorio["NodoDirectorio"]
+    FCB["FCB"]
+    SistemaArchivos --> NodoDirectorio
+    NodoDirectorio --> FCB
+
+    %% Componentes internos de E/S
+    DispositivoES["DispositivoES"]
+    SolicitudES["SolicitudES"]
+    GestorES --> DispositivoES
+    DispositivoES --> SolicitudES
+
+    %% PCB como componente del scheduler
+    PCB["PCB"]
+    Scheduler --> PCB
