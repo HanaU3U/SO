@@ -26,7 +26,6 @@ El proyecto tiene un **enfoque didáctico**, proporcionando un entorno que ilust
 
 ## Introducción
 ### Contexto y Motivación
-
 EL desarrollo de **Sistemas Operativos** como software es un area fundamental en el desarrollo de competencias dentro de la ingeniería de software. La comprensión de los componentes y los metodos de interoperabilidad de un Kernel brindan una concepción mas clara en cuanto a la busqueda de souluciones para optimización de recursos, solución de errores y previsión de la escalabilidad en la construcción de productos de software.
 
 El proyecto surge con la motivación de ofrecer un **entorno didáctico y visual** que permita observar de manera práctica la estructura y el comportamiento de un kernel. La simulación propuesta busca **demostrar la interoperabilidad de los módulos**, los algoritmos implementados y los procedimientos que permiten la coordinación de recursos en el sistema, facilitando la comprensión de conceptos que en un kernel real serían complejos de analizar directamente.
@@ -39,7 +38,6 @@ El proyecto surge con la motivación de ofrecer un **entorno didáctico y visual
 4. **Simular un sistema de archivos**, permitiendo la creación, apertura, cierre y listado de archivos y directorios.  
 5. **Gestionar entradas y salidas (E/S) e interrupciones**, mostrando cómo los procesos interactúan con dispositivos y se desbloquean mediante eventos.  
 6. **Ofrecer un enfoque practico simulado**, proporcionando un entorno visual para entender los fundamentos de un kernel.
-
 ### Requerimientos
 #### Funcionales
 
@@ -90,4 +88,5 @@ El proyecto surge con la motivación de ofrecer un **entorno didáctico y visual
 ---
 
 ## Anexos
+
 [Propongo dejar aqui los diagramas]
