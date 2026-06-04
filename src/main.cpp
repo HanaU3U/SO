@@ -83,10 +83,10 @@ static void test_segmentacion() {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  TEST 3: Fragmentación, Best-Fit y Compactación (Días 6-7)
+//  TEST 3: Fragmentación, First-Fit y Compactación
 // ─────────────────────────────────────────────────────────────
 static void test_fragmentacion_y_bestfit() {
-    seccion("Fragmentacion, Best-Fit y Compactacion (Dias 6-7)");
+    seccion("Fragmentacion, First-Fit y Compactacion ");
 
     // Usar GestorMemoria directamente para controlar el algoritmo
     GestorMemoria mem;

@@ -72,7 +72,7 @@ struct RegionCompartida {
 };
 
 // ─────────────────────────────────────────────
-//  Algoritmos de asignación de memoria (Día 6)
+//  Algoritmos de asignación de memoria 
 // ─────────────────────────────────────────────
 enum AlgoritmoAsignacion {
     FIRST_FIT,  // Primer bloque con espacio suficiente
@@ -86,7 +86,7 @@ class GestorMemoria {
 public:
     GestorMemoria();
 
-    // --- Alocación contigua (Día 6: First-Fit / Best-Fit) ---
+    // --- Alocación contigua (First-Fit / Best-Fit) ---
     int  asignarContiguo(int pid, int tamanoKB,
                          AlgoritmoAsignacion algo = FIRST_FIT);
     void liberarContiguo(int pid);
@@ -112,7 +112,7 @@ public:
     bool swapIn(int pid);     // Trae páginas de swap a RAM
     bool hayEspacioRAM(int numPaginas) const;
 
-    // --- Fragmentación (Día 7) ---
+    // --- Fragmentación  ---
     void mostrarFragmentacion() const;  // Muestra huecos y % frag. externa
     void compactar();                   // Elimina frag. externa moviendo bloques
 
@@ -123,7 +123,7 @@ public:
     int  memoriaUsadaKB() const;
 
 private:
-    // Día 5: Array físico — índice = número de KB, valor = PID dueño (-1 = libre)
+    // Array físico — índice = número de KB, valor = PID dueño (-1 = libre)
     std::array<int, MEMORIA_TOTAL> celdas_;
 
     // Alocación contigua (lista de bloques sobre el array físico)
@@ -148,8 +148,8 @@ private:
 
     // Helpers internos
     int  buscarMarcosLibres(int cantidad) const;
-    int  buscarBloqueLibre(int tamano) const;        // First-Fit (Día 6)
-    int  buscarBloqueLibreBestFit(int tamano) const; // Best-Fit  (Día 6)
+    int  buscarBloqueLibre(int tamano) const;        // First-Fit 
+    int  buscarBloqueLibreBestFit(int tamano) const; // Best-Fit 
     int  asignarSlotSwap();
 };
 

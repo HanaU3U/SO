@@ -4,6 +4,12 @@
 #include <algorithm>
 #include <climits>
 
+namespace {
+int pidRegionCompartida(int regionId) {
+    return -(regionId + 1);
+}
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  Constructor
 // ═══════════════════════════════════════════════════════════════
@@ -12,14 +18,14 @@ GestorMemoria::GestorMemoria()
       swapLibre_(TAMANO_SWAP / TAMANO_PAGINA, true),
       siguienteRegionId_(1)
 {
-    // Día 5: inicializar array físico de memoria (toda la RAM libre al inicio)
+    // inicializar array físico de memoria (toda la RAM libre al inicio)
     celdas_.fill(-1);
     // Un único bloque contiguo libre al inicio
     bloques_.emplace_back(0, MEMORIA_TOTAL, true, -1);
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  ALOCACIÓN CONTIGUA — Día 6: First-Fit y Best-Fit
+//  ALOCACIÓN CONTIGUA First-Fit y Best-Fit
 // ═══════════════════════════════════════════════════════════════
 // First-Fit: primer bloque libre con tamaño suficiente
 int GestorMemoria::buscarBloqueLibre(int tamano) const {
@@ -69,7 +75,7 @@ int GestorMemoria::asignarContiguo(int pid, int tamanoKB, AlgoritmoAsignacion al
     bloques_[static_cast<std::size_t>(idx)].libre     = false;
     bloques_[static_cast<std::size_t>(idx)].pidDueno  = pid;
 
-    // Día 5: marcar celdas físicas con el PID propietario
+    // marcar celdas físicas con el PID propietario
     for (int c = base; c < base + tamanoKB && c < MEMORIA_TOTAL; ++c)
         celdas_[c] = pid;
 
@@ -82,14 +88,14 @@ int GestorMemoria::asignarContiguo(int pid, int tamanoKB, AlgoritmoAsignacion al
 void GestorMemoria::liberarContiguo(int pid) {
     for (auto& b : bloques_) {
         if (!b.libre && b.pidDueno == pid) {
-            // Día 5: liberar celdas físicas
+            // liberar celdas físicas
             for (int c = b.inicio; c < b.inicio + b.tamano && c < MEMORIA_TOTAL; ++c)
                 celdas_[c] = -1;
             b.libre    = true;
             b.pidDueno = -1;
         }
     }
-    // Día 7: fusión (coalescing) de bloques adyacentes libres
+    // fusión (coalescing) de bloques adyacentes libres
     bool fusiono = true;
     while (fusiono) {
         fusiono = false;
@@ -106,7 +112,14 @@ void GestorMemoria::liberarContiguo(int pid) {
 }
 
 void GestorMemoria::mostrarMapaMemoria() const {
-    std::cout << "\n=== MAPA DE MEMORIA CONTIGUA (Dia 5) ===\n";
+    int usadoFisico = memoriaUsadaKB();
+    int usadoContiguo = 0;
+
+    for (const auto& b : bloques_) {
+        if (!b.libre) usadoContiguo += b.tamano;
+    }
+
+    std::cout << "\n=== MAPA DE MEMORIA CONTIGUA ===\n";
     std::cout << std::left << std::setw(12) << "Inicio(KB)"
               << std::setw(12) << "Fin(KB)"
               << std::setw(12) << "Tama\u00f1o(KB)"
@@ -120,6 +133,10 @@ void GestorMemoria::mostrarMapaMemoria() const {
                   << std::setw(12) << b.tamano
                   << std::setw(8)  << (b.libre ? "LIBRE" : "USADO")
                   << (b.libre ? "-" : std::to_string(b.pidDueno)) << "\n";
+    }
+    if (usadoFisico > usadoContiguo) {
+        std::cout << "[MEMORIA] Nota: la tabla superior refleja solo asignacion contigua; "
+                  << "la ocupacion por paginacion se ve en el array fisico y en Libre/Usada.\n";
     }
     // Visualización compacta del array físico (cada carácter = 32 KB)
     std::cout << "\nArray físico [" << MEMORIA_TOTAL << " KB] (cada pos = 32 KB):\n[";
@@ -206,7 +223,7 @@ void GestorMemoria::imprimirSegmentos(int pid) const {
 //  Múltiples procesos mapean la misma región física (misma copia)
 // ═══════════════════════════════════════════════════════════════
 int GestorMemoria::crearRegionCompartida(int pid, int tamanoKB) {
-    int base = asignarContiguo(-siguienteRegionId_, tamanoKB);
+    int base = asignarContiguo(pidRegionCompartida(siguienteRegionId_), tamanoKB);
     if (base == -1) return -1;
 
     RegionCompartida region(siguienteRegionId_++, base, tamanoKB);
@@ -243,7 +260,7 @@ void GestorMemoria::desadjuntarRegion(int pid, int regionId) {
                       << regionId << " (refCount=" << r.refCount << ")\n";
             if (r.refCount == 0) {
                 // Nadie la usa, liberar
-                liberarContiguo(-regionId);
+                liberarContiguo(pidRegionCompartida(regionId));
                 std::cout << "[COMPARTIDA] Región " << regionId << " eliminada (sin referencias).\n";
             }
             return;
@@ -256,8 +273,8 @@ void GestorMemoria::desadjuntarRegion(int pid, int regionId) {
 // ═══════════════════════════════════════════════════════════════
 int GestorMemoria::memoriaLibreKB() const {
     int libre = 0;
-    for (const auto& b : bloques_)
-        if (b.libre) libre += b.tamano;
+    for (int celda : celdas_)
+        if (celda == -1) ++libre;
     return libre;
 }
 
@@ -266,7 +283,7 @@ int GestorMemoria::memoriaUsadaKB() const {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  FRAGMENTACIÓN — Día 7
+//  FRAGMENTACIÓN 
 // ═══════════════════════════════════════════════════════════════
 void GestorMemoria::mostrarFragmentacion() const {
     int huecos     = 0;
@@ -284,7 +301,7 @@ void GestorMemoria::mostrarFragmentacion() const {
         ? (1.0 - static_cast<double>(mayorHueco) / totalLibre) * 100.0
         : 0.0;
 
-    std::cout << "\n=== FRAGMENTACION (Dia 7) ===\n";
+    std::cout << "\n=== FRAGMENTACION ===\n";
     std::cout << "  Memoria total   : " << MEMORIA_TOTAL    << " KB\n";
     std::cout << "  Memoria usada   : " << memoriaUsadaKB() << " KB\n";
     std::cout << "  Memoria libre   : " << totalLibre       << " KB\n";

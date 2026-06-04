@@ -2,8 +2,22 @@
 #include <iostream>
 #include <iomanip>
 
+namespace {
+void marcarMarco(std::array<int, MEMORIA_TOTAL>& celdas, int marco, int pid) {
+    int base = marco * TAMANO_PAGINA;
+    for (int offset = 0; offset < TAMANO_PAGINA && base + offset < MEMORIA_TOTAL; ++offset)
+        celdas[static_cast<std::size_t>(base + offset)] = pid;
+}
+
+void limpiarMarco(std::array<int, MEMORIA_TOTAL>& celdas, int marco) {
+    int base = marco * TAMANO_PAGINA;
+    for (int offset = 0; offset < TAMANO_PAGINA && base + offset < MEMORIA_TOTAL; ++offset)
+        celdas[static_cast<std::size_t>(base + offset)] = -1;
+}
+}
+
 // ═══════════════════════════════════════════════════════════════
-//  MEMORIA VIRTUAL — Día 8: Paginación (mapeo lógico → físico)
+//  MEMORIA VIRTUAL — Paginación (mapeo lógico → físico)
 //
 //  Cada proceso ve un espacio de direcciones lógico contiguo.
 //  La MMU traduce usando la tabla de páginas del proceso:
@@ -58,6 +72,7 @@ bool GestorMemoria::asignarPaginas(int pid, int numPaginas) {
     for (int m = 0; m < NUM_MARCOS && asignadas < numPaginas; ++m) {
         if (marcos_[m] == -1) {
             marcos_[m] = pid;
+            marcarMarco(celdas_, m, pid);
             tabla[static_cast<std::size_t>(asignadas)].marcoFisico  = m;
             tabla[static_cast<std::size_t>(asignadas)].presente      = true;
             tabla[static_cast<std::size_t>(asignadas)].modificada    = false;
@@ -120,6 +135,7 @@ void GestorMemoria::liberarPaginas(int pid) {
     for (auto& pte : it->second) {
         if (pte.presente && pte.marcoFisico >= 0) {
             marcos_[static_cast<std::size_t>(pte.marcoFisico)] = -1;
+            limpiarMarco(celdas_, pte.marcoFisico);
         }
         // Liberar slot swap si lo tenía
         if (pte.swapOffset >= 0) {
@@ -188,6 +204,7 @@ bool GestorMemoria::swapOut(int pid) {
 
         // Simula escritura a disco: libera el marco físico
         marcos_[static_cast<std::size_t>(pte.marcoFisico)] = -1;
+        limpiarMarco(celdas_, pte.marcoFisico);
         pte.swapOffset   = slot;
         pte.presente     = false;
         pte.modificada   = false;
@@ -221,6 +238,7 @@ bool GestorMemoria::swapIn(int pid) {
             if (marcos_[m] == -1) {
                 // Simula lectura desde disco
                 marcos_[m]       = pid;
+                marcarMarco(celdas_, m, pid);
                 swapLibre_[static_cast<std::size_t>(pte.swapOffset)] = true;
                 pte.marcoFisico  = m;
                 pte.presente     = true;
