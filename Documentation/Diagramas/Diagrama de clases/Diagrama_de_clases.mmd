@@ -1,0 +1,199 @@
+classDiagram
+    %% Clases principales del kernel
+    class Kernel {
+        +Scheduler scheduler_
+        +GestorMemoria memoria_
+        +SistemaArchivos fs_
+        +GestorES gestorES_
+        +ControladorInterrupciones controladorInterrupciones_
+        +int siguienteBloqueDatos_
+        +std::unordered_map<int, InfoMemoriaProceso> infoMemoria_
+        +Kernel()
+        +crearProceso(nombre: string, cpuTime: int, memoriaKB: int, quantum: int = 5, usarPaginacion: bool = true)
+        +terminarProceso(pid: int)
+        +crearMemoriaCompartida(pid: int, tamanoKB: int)
+        +adjuntarMemoriaCompartida(pid: int, regionId: int)
+        +desadjuntarMemoriaCompartida(pid: int, regionId: int)
+        +swapOut(pid: int)
+        +swapIn(pid: int)
+        +ejecutar(tiempoTotal: int)
+        +crearDirectorio(ruta: string)
+        +crearArchivo(ruta: string, tipo: string, tamanoKB: int, permisos: string = "rw-")
+        +abrirArchivo(pid: int, ruta: string)
+        +cerrarArchivo(pid: int, ruta: string)
+        +listarDirectorio(ruta: string = "/")
+        +registrarDispositivo(nombre: string, tipo: string)
+        +solicitarIO(pid: int, nombreDispositivo: string, operacion: string, duracionTicks: int)
+        +imprimirDispositivos()
+        +imprimirEstado()
+        +imprimirMemoria()
+        +imprimirTablaPaginas(pid: int)
+        +imprimirSegmentos(pid: int)
+        +mostrarFragmentacion()
+        +compactar()
+    }
+
+    class Scheduler {
+        +std::queue~PCB*~ readyQueue
+        +std::vector~PCB*~ allProcesses
+        +PCB* runningProcess
+        +int nextPID
+        +int currentTime
+        +Scheduler()
+        +~Scheduler()
+        +createProcess(name: string, cpuTimeNeeded: int, quantum: int = 5)
+        +addToReadyQueue(process: PCB*)
+        +scheduleNextProcess()
+        +executeTimeSlice(timeSlice: int)
+        +runScheduler(totalSimulationTime: int)
+        +transitionNewToReady(process: PCB*)
+        +transitionReadyToRunning(process: PCB*)
+        +transitionRunningToReady(process: PCB*)
+        +transitionRunningToBlocked(process: PCB*)
+        +transitionBlockedToReady(process: PCB*)
+        +transitionRunningToTerminated(process: PCB*)
+        +blockProcess(pid: int)
+        +unblockProcess(pid: int)
+        +getProcessByPid(pid: int)
+        +printReadyQueue()
+        +printProcessStatus()
+        +printStatistics()
+        +hasReadyProcesses()
+        +hasBlockedProcesses()
+    }
+
+    class PCB {
+        +int pid
+        +string name
+        +ProcessState state
+        +int cpuTimeRemaining
+        +int cpuTimeUsed
+        +time_t creationTime
+        +int timeQuantum
+        +PCB(id: int, processName: string, totalTime: int, quantum: int = 5)
+        +setState(newState: ProcessState)
+        +getState()
+        +updateCpuUsage(timeSlice: int)
+        +isTimeFinished()
+    }
+
+    class GestorMemoria {
+        +std::array~int, MEMORIA_TOTAL~ celdas_
+        +std::vector~BloqueMemoria~ bloques_
+        +std::unordered_map~int, std::vector~Segmento~~ tablaSegmentos_
+        +std::unordered_map~int, std::vector~PaginaEntry~~ tablaPaginas_
+        +std::vector~int~ marcos_
+        +std::unordered_map~int, std::vector~int~~ swapMap_
+        +std::vector~bool~ swapLibre_
+        +std::vector~RegionCompartida~ regionesCompartidas_
+        +int siguienteRegionId_
+        +GestorMemoria()
+        +asignarContiguo(pid: int, tamanoKB: int, algo: AlgoritmoAsignacion = FIRST_FIT)
+        +liberarContiguo(pid: int)
+        +mostrarMapaMemoria()
+        +crearSegmentos(pid: int, tamCodigo: int, tamDatos: int, tamPila: int)
+        +accederSegmento(pid: int, segmento: string, offset: int)
+        +liberarSegmentos(pid: int)
+        +asignarPaginas(pid: int, numPaginas: int)
+        +traducirDireccion(pid: int, dirLogica: int)
+        +liberarPaginas(pid: int)
+        +crearRegionCompartida(pid: int, tamanoKB: int)
+        +adjuntarRegion(pid: int, regionId: int)
+        +desadjuntarRegion(pid: int, regionId: int)
+        +swapOut(pid: int)
+        +swapIn(pid: int)
+        +mostrarFragmentacion()
+        +compactar()
+    }
+
+    class FCB {
+        +string nombre
+        +string tipo
+        +int tamanoKB
+        +int bloqueDatos
+        +string fechaCreacion
+        +string fechaModificacion
+        +string permisos
+        +bool abierto
+        +int aperturasActivas
+        +FCB()
+        +FCB(nombreArchivo: string, tipoArchivo: string, tamano: int, bloque: int, permisosArchivo: string = "rw-")
+        +actualizarTamano(nuevoTamanoKB: int)
+        +tocar()
+        +abrir()
+        +cerrar()
+    }
+
+    class NodoDirectorio {
+        +bool esDirectorio
+        +string nombre
+        +FCB fcb
+        +std::unordered_map~string, std::unique_ptr~NodoDirectorio~~ hijos
+        +NodoDirectorio(nombre: string)
+        +NodoDirectorio(nombre: string, archivo: FCB)
+    }
+
+    class SistemaArchivos {
+        +std::unique_ptr~NodoDirectorio~ raiz_
+        +std::unordered_map~int, std::unordered_set~string~~ abiertosPorProceso_
+        +SistemaArchivos()
+        +crearDirectorio(ruta: string)
+        +crearArchivo(ruta: string, tipo: string, tamanoKB: int, bloqueInicio: int, permisos: string = "rw-")
+        +abrirArchivo(pid: int, ruta: string)
+        +cerrarArchivo(pid: int, ruta: string)
+        +cerrarTodosArchivosProceso(pid: int)
+        +existe(ruta: string)
+        +listarDirectorio(ruta: string = "/")
+    }
+
+    class DispositivoES {
+        +string nombre
+        +string tipo
+        +EstadoDispositivo estado
+        +std::queue~SolicitudES~ colaSolicitudes
+        +bool tieneSolicitudActiva
+        +SolicitudES solicitudActiva
+    }
+
+    class SolicitudES {
+        +int pid
+        +string nombreDispositivo
+        +string operacion
+        +int duracionTicks
+        +int ticksRestantes
+    }
+
+    class GestorES {
+        +std::unordered_map~string, DispositivoES~ dispositivos_
+        +std::queue~EventoInterrupcion~ interrupcionesPendientes_
+        +registrarDispositivo(nombre: string, tipo: string)
+        +solicitarIO(pid: int, nombreDispositivo: string, operacion: string, duracionTicks: int)
+        +procesarTick()
+        +consumirInterrupciones()
+        +haySolicitudesPendientes()
+        +existeDispositivo(nombre: string)
+        +imprimirTablaDispositivos()
+    }
+
+    class ControladorInterrupciones {
+        +despachar(gestorES: GestorES, scheduler: Scheduler)
+    }
+
+    %% Relaciones
+    Kernel *-- Scheduler
+    Kernel *-- GestorMemoria
+    Kernel *-- SistemaArchivos
+    Kernel *-- GestorES
+    Kernel *-- ControladorInterrupciones
+    Scheduler *-- PCB
+    SistemaArchivos *-- NodoDirectorio
+    NodoDirectorio *-- FCB
+    NodoDirectorio *-- NodoDirectorio
+    GestorES *-- DispositivoES
+    GestorES *-- EventoInterrupcion
+    GestorES *-- SolicitudES
+    DispositivoES *-- SolicitudES
+    GestorMemoria *-- BloqueMemoria
+    GestorMemoria *-- Segmento
+    GestorMemoria *-- PaginaEntry
+    GestorMemoria *-- RegionCompartida

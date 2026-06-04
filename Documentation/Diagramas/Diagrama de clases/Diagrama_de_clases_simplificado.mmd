@@ -1,0 +1,94 @@
+classDiagram
+    %% Clases principales simplificadas
+    class Kernel {
+        +Kernel()
+        +crearProceso(nombre: string, cpuTime: int)
+        +terminarProceso(pid: int)
+        +crearArchivo(ruta: string, tipo: string, tamanoKB: int)
+        +abrirArchivo(pid: int, ruta: string)
+        +cerrarArchivo(pid: int, ruta: string)
+        +registrarDispositivo(nombre: string, tipo: string)
+        +solicitarIO(pid: int, nombreDispositivo: string, operacion: string)
+        +ejecutar(tiempoTotal: int)
+    }
+
+    class Scheduler {
+        +createProcess(name: string, cpuTimeNeeded: int)
+        +scheduleNextProcess()
+        +runScheduler(totalSimulationTime: int)
+        +blockProcess(pid: int)
+        +unblockProcess(pid: int)
+    }
+
+    class PCB {
+        +pid
+        +name
+        +state
+        +setState(newState)
+    }
+
+    class GestorMemoria {
+        +asignarContiguo(pid: int, tamanoKB: int)
+        +liberarContiguo(pid: int)
+        +crearSegmentos(pid: int, tamCodigo: int, tamDatos: int, tamPila: int)
+        +swapOut(pid: int)
+        +swapIn(pid: int)
+        +mostrarMapaMemoria()
+    }
+
+    class FCB {
+        +nombre
+        +tipo
+        +tamanoKB
+        +abrir()
+        +cerrar()
+    }
+
+    class NodoDirectorio {
+        +esDirectorio
+        +nombre
+        +FCB fcb
+    }
+
+    class SistemaArchivos {
+        +crearDirectorio(ruta: string)
+        +crearArchivo(ruta: string, tipo: string, tamanoKB: int)
+        +abrirArchivo(pid: int, ruta: string)
+        +cerrarArchivo(pid: int, ruta: string)
+        +listarDirectorio(ruta: string)
+    }
+
+    class DispositivoES {
+        +nombre
+        +tipo
+        +colaSolicitudes
+    }
+
+    class SolicitudES {
+        +pid
+        +nombreDispositivo
+        +operacion
+        +duracionTicks
+    }
+
+    class GestorES {
+        +registrarDispositivo(nombre: string, tipo: string)
+        +solicitarIO(pid: int, nombreDispositivo: string, operacion: string)
+        +procesarTick()
+    }
+
+    class ControladorInterrupciones {
+        +despachar(gestorES: GestorES, scheduler: Scheduler)
+    }
+
+    %% Relaciones
+    Kernel *-- Scheduler
+    Kernel *-- GestorMemoria
+    Kernel *-- SistemaArchivos
+    Kernel *-- GestorES
+    Kernel *-- ControladorInterrupciones
+    Scheduler *-- PCB
+    SistemaArchivos *-- NodoDirectorio
+    NodoDirectorio *-- FCB
+    GestorES *-- DispositivoES
+    DispositivoES *-- SolicitudES
