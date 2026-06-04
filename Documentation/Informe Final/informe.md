@@ -38,23 +38,391 @@ El proyecto surge con la motivación de ofrecer un **entorno didáctico y visual
 4. **Simular un sistema de archivos**, permitiendo la creación, apertura, cierre y listado de archivos y directorios.  
 5. **Gestionar entradas y salidas (E/S) e interrupciones**, mostrando cómo los procesos interactúan con dispositivos y se desbloquean mediante eventos.  
 6. **Ofrecer un enfoque practico simulado**, proporcionando un entorno visual para entender los fundamentos de un kernel.
-### Requerimientos
-#### Funcionales
+## Requerimientos
 
+### Requerimientos Funcionales
 
-#### No funcionales
+1. **Creación, ejecución y terminación de procesos:**  
+   - El kernel debe permitir crear procesos con diferentes nombres, tiempos de CPU requeridos y prioridades.  
+   - Debe manejar la transición de estados de los procesos (NEW, READY, RUNNING, BLOCKED, TERMINATED) de forma automática según el scheduler.  
+   - Permite la terminación de procesos de manera controlada, liberando recursos asociados y actualizando los registros internos.
+
+2. **Gestión de memoria:**  
+   - Asignación y liberación de memoria para procesos, tanto de manera contigua como por segmentación/paginación según la configuración.  
+   - Implementación de algoritmos de asignación de memoria como First-Fit y Best-Fit.  
+   - Soporte de segmentación y paginación, incluyendo la traducción de direcciones lógicas a físicas.  
+   - Gestión de swapping para mover procesos a memoria secundaria cuando no hay espacio suficiente.  
+   - Visualización del estado de la memoria y fragmentación mediante logs o tablas de memoria.
+
+3. **Sistema de archivos:**  
+   - Creación de archivos y directorios dentro de un árbol jerárquico simulado.  
+   - Apertura, cierre y listado de archivos, manteniendo un control de accesos y bloqueos por procesos.  
+   - Soporte para atributos de archivo como tipo, tamaño, bloque inicial, permisos y estado abierto/cerrado.  
+   - Persistencia simulada de archivos para que se pueda consultar su existencia y contenido durante la ejecución de la simulación.
+
+4. **Gestión de dispositivos de E/S y solicitudes de procesos:**  
+   - Registro de dispositivos simulados, con atributos como nombre, tipo y estado.  
+   - Los procesos pueden solicitar operaciones de entrada/salida (lectura, escritura, etc.) que se gestionan mediante colas FIFO.  
+   - Simulación del bloqueo de procesos que realizan solicitudes de E/S y desbloqueo mediante interrupciones.  
+   - Control de solicitudes activas y pendientes, permitiendo observar el flujo de E/S en tiempo real.
+
+5. **Manejo de interrupciones:**  
+   - Generación de eventos de interrupción al finalizar operaciones de E/S.  
+   - El controlador de interrupciones despacha los eventos, notificando al scheduler para desbloquear procesos.  
+   - Permite la observación de la transición de procesos de BLOCKED a READY, y su posterior re-ejecución por el scheduler.
+
+6. **Ejecución en múltiples entornos:**  
+   - El kernel debe ser capaz de ejecutarse correctamente en sistemas Windows y Linux.  
+   - La simulación debe mantener la consistencia del comportamiento del kernel independientemente del sistema operativo anfitrión, demostrando la interoperabilidad de los módulos y la gestión de recursos.
+
+---
+
+### Requerimientos No Funcionales
+
+1. **Enfoque didáctico y claridad:**  
+   - El kernel debe ser comprensible y fácil de usar para fines educativos.  
+   - Los logs y la salida de la simulación deben mostrar de manera clara los eventos importantes (transiciones de procesos, asignación de memoria, operaciones de archivos y E/S).
+
+2. **Rendimiento y observabilidad:**  
+   - La simulación debe permitir observar la interacción entre procesos y módulos sin bloquear el flujo principal.  
+   - Debe ofrecer una visualización del estado del sistema en tiempo real mediante tablas o logs, permitiendo la comprensión de la ejecución paso a paso.
+
+3. **Portabilidad:**  
+   - Debe ejecutarse en sistemas que cuenten con g++ instalado, tanto en Windows como en Linux.  
+   - La simulación no debe depender de librerías específicas de un solo sistema operativo, asegurando que los comportamientos sean consistentes.
+
+4. **Confiabilidad y robustez:**  
+   - El kernel debe manejar adecuadamente errores y condiciones de borde (por ejemplo, falta de memoria, acceso a archivos inexistentes, solicitudes de E/S inválidas).  
+   - Las estructuras de datos y colas deben mantenerse consistentes aun cuando ocurran errores durante la ejecución.
+
+5. **Mantenibilidad y escalabilidad:**  
+   - El código debe estar organizado en módulos claramente definidos, facilitando la comprensión, extensión o modificación de la simulación en el futuro.  
+   - Los componentes principales (Scheduler, GestorMemoria, SistemaArchivos, GestorES, ControladorInterrupciones) deben ser independientes y comunicarse mediante interfaces bien definidas.
 
 
 ---
 
 ## Diseño del Sistema
 ### Arquitectura General
-[Diagrama de componentes y explicación]
 
-### Diagrama de Clases
-[Espacio para insertar el diagrama de clases Mermaid]
+```mermaid
+graph TD
+    %% Componentes principales del kernel
+    Kernel["Kernel"]
+    Scheduler["Scheduler"]
+    GestorMemoria["GestorMemoria"]
+    SistemaArchivos["SistemaArchivos"]
+    GestorES["Gestor de ES"]
+    ControladorInterrupciones["Controlador de Interrupciones"]
+
+    %% Relaciones
+    Kernel --> Scheduler
+    Kernel --> GestorMemoria
+    Kernel --> SistemaArchivos
+    Kernel --> GestorES
+    Kernel --> ControladorInterrupciones
+
+    %% Componentes internos de Sistema de Archivos
+    NodoDirectorio["NodoDirectorio"]
+    FCB["FCB"]
+    SistemaArchivos --> NodoDirectorio
+    NodoDirectorio --> FCB
+
+    %% Componentes internos de E/S
+    DispositivoES["DispositivoES"]
+    SolicitudES["SolicitudES"]
+    GestorES --> DispositivoES
+    DispositivoES --> SolicitudES
+
+    %% PCB como componente del scheduler
+    PCB["PCB"]
+    Scheduler --> PCB
+```
+
+El kernel didáctico está diseñado como un sistema modular donde cada componente cumple funciones específicas y se comunica de manera controlada con los demás módulos. La arquitectura refleja de forma visual y didáctica cómo interactúan los distintos elementos fundamentales de un kernel real.
+
+#### Componentes principales:
+
+1. **Kernel**  
+   - Es el módulo central que coordina todos los demás componentes.  
+   - Gestiona la creación y terminación de procesos, la asignación de recursos y la supervisión general del sistema.
+
+2. **Scheduler**  
+   - Responsable de la planificación de procesos.  
+   - Mantiene la cola de procesos listos (`READY`) y ejecuta los procesos de acuerdo con el algoritmo implementado (p. ej., Round-Robin).  
+   - Interactúa con el **PCB** de cada proceso para gestionar sus estados.
+
+3. **Gestor de Memoria**  
+   - Administra la asignación y liberación de memoria de los procesos.  
+   - Soporta segmentación, paginación y swapping para simular la gestión real de memoria.  
+   - Proporciona visualización del estado de la memoria y de la fragmentación.
+
+4. **Sistema de Archivos (FS)**  
+   - Gestiona directorios y archivos mediante una estructura jerárquica.  
+   - Permite crear, abrir, cerrar y listar archivos, controlando permisos y bloqueos.  
+   - Cada archivo está representado por un **FCB**, mientras que los directorios están organizados en nodos de tipo **NodoDirectorio**.
+
+5. **Gestor de E/S**  
+   - Administra dispositivos simulados y las solicitudes de entrada/salida de los procesos.  
+   - Implementa colas FIFO para procesar solicitudes de manera ordenada y bloquea procesos mientras esperan E/S.
+
+6. **Controlador de Interrupciones**  
+   - Supervisa los eventos de interrupción generados por las operaciones de E/S.  
+   - Notifica al **Scheduler** cuando un proceso bloqueado puede volver al estado `READY`.
+
+#### Interacciones clave:
+
+- El **Kernel** coordina la ejecución general: recibe solicitudes de los procesos, delega tareas de memoria al **Gestor de Memoria**, de archivos al **Sistema de Archivos**, y de E/S al **Gestor de E/S**.  
+- El **Scheduler** planifica procesos según su estado y el quantum asignado, interactuando con el Kernel y la gestión de interrupciones.  
+- Cuando un proceso solicita E/S, el **Gestor de E/S** lo bloquea y registra la solicitud; al completarse, se genera una interrupción que el **Controlador de Interrupciones** despacha para que el **Scheduler** vuelva a poner el proceso en `READY`.  
+- La memoria se administra de manera que cada proceso tenga sus segmentos o páginas asignadas, y las regiones compartidas permiten la interacción entre procesos.  
+- El sistema de archivos mantiene el control de todos los archivos abiertos, cerrados y la estructura de directorios, reflejando las interacciones de los procesos con los recursos del kernel.
+
+
+### Diagrama de Clases (Estructura general simplificada)
+```mermaid
+classDiagram
+    %% Clases principales simplificadas
+    class Kernel {
+        +Kernel()
+        +crearProceso(nombre: string, cpuTime: int)
+        +terminarProceso(pid: int)
+        +crearArchivo(ruta: string, tipo: string, tamanoKB: int)
+        +abrirArchivo(pid: int, ruta: string)
+        +cerrarArchivo(pid: int, ruta: string)
+        +registrarDispositivo(nombre: string, tipo: string)
+        +solicitarIO(pid: int, nombreDispositivo: string, operacion: string)
+        +ejecutar(tiempoTotal: int)
+    }
+
+    class Scheduler {
+        +createProcess(name: string, cpuTimeNeeded: int)
+        +scheduleNextProcess()
+        +runScheduler(totalSimulationTime: int)
+        +blockProcess(pid: int)
+        +unblockProcess(pid: int)
+    }
+
+    class PCB {
+        +pid
+        +name
+        +state
+        +setState(newState)
+    }
+
+    class GestorMemoria {
+        +asignarContiguo(pid: int, tamanoKB: int)
+        +liberarContiguo(pid: int)
+        +crearSegmentos(pid: int, tamCodigo: int, tamDatos: int, tamPila: int)
+        +swapOut(pid: int)
+        +swapIn(pid: int)
+        +mostrarMapaMemoria()
+    }
+
+    class FCB {
+        +nombre
+        +tipo
+        +tamanoKB
+        +abrir()
+        +cerrar()
+    }
+
+    class NodoDirectorio {
+        +esDirectorio
+        +nombre
+        +FCB fcb
+    }
+
+    class SistemaArchivos {
+        +crearDirectorio(ruta: string)
+        +crearArchivo(ruta: string, tipo: string, tamanoKB: int)
+        +abrirArchivo(pid: int, ruta: string)
+        +cerrarArchivo(pid: int, ruta: string)
+        +listarDirectorio(ruta: string)
+    }
+
+    class DispositivoES {
+        +nombre
+        +tipo
+        +colaSolicitudes
+    }
+
+    class SolicitudES {
+        +pid
+        +nombreDispositivo
+        +operacion
+        +duracionTicks
+    }
+
+    class GestorES {
+        +registrarDispositivo(nombre: string, tipo: string)
+        +solicitarIO(pid: int, nombreDispositivo: string, operacion: string)
+        +procesarTick()
+    }
+
+    class ControladorInterrupciones {
+        +despachar(gestorES: GestorES, scheduler: Scheduler)
+    }
+
+    %% Relaciones
+    Kernel *-- Scheduler
+    Kernel *-- GestorMemoria
+    Kernel *-- SistemaArchivos
+    Kernel *-- GestorES
+    Kernel *-- ControladorInterrupciones
+    Scheduler *-- PCB
+    SistemaArchivos *-- NodoDirectorio
+    NodoDirectorio *-- FCB
+    GestorES *-- DispositivoES
+    DispositivoES *-- SolicitudES
+
+```
+
+En la estructura de clases puede evidenciarse de igual manera cada uno de los componentes del programa en paralelo con los componentes principales de un kernel, de entre los cuales destacan el orquestador principal (la clase kernel), el scheduler, gestor de memoria y de procesos, las instancias de procesos (PCB), el FCB y las instancias de mapeos dispositivos de Entradas y Salidas
 
 ### Flujograma
+
+```mermaid
+flowchart TD
+
+    A([Inicio]) --> B[configurarConsolaUtf8]
+    B --> C[test_procesos_paginacion]
+    C --> D[test_segmentacion]
+    D --> E[test_fragmentacion_y_bestfit]
+    E --> F[test_memoria_compartida]
+    F --> G[test_swapping]
+    G --> H[test_integracion_completa]
+    H --> I["Imprimir: Todos los tests completados"]
+    I --> J([Fin])
+
+    %% TEST 1
+    subgraph TP["Test 1: Procesos con paginación + Round Robin"]
+        TP1[Crear Kernel]
+        TP2[Crear Proceso A]
+        TP3[Crear Proceso B]
+        TP4[Crear Proceso C]
+        TP5[Mostrar tablas de páginas]
+        TP6[Mostrar estado de procesos]
+        TP7[Mostrar memoria]
+        TP8[Ejecutar scheduler 40 ticks]
+        TP9[Mostrar estado final]
+        TP10[Mostrar memoria final]
+        TP11[Terminar Proceso C]
+
+        TP1 --> TP2 --> TP3 --> TP4 --> TP5 --> TP6 --> TP7 --> TP8 --> TP9 --> TP10 --> TP11
+    end
+
+    %% TEST 2
+    subgraph TS["Test 2: Segmentación"]
+        TS1[Crear Kernel]
+        TS2[Crear proceso segmentado]
+        TS3[Mostrar segmentos]
+        TS4[Mostrar memoria]
+        TS5[Ejecutar 10 ticks]
+        TS6[Terminar proceso]
+        TS7[Mostrar memoria liberada]
+
+        TS1 --> TS2 --> TS3 --> TS4 --> TS5 --> TS6 --> TS7
+    end
+
+    %% TEST 3
+    subgraph TF["Test 3: Fragmentación y Best-Fit"]
+        TF1[Crear GestorMemoria]
+        TF2[Asignar PID 100]
+        TF3[Asignar PID 101]
+        TF4[Asignar PID 102]
+        TF5[Mostrar fragmentación]
+        TF6[Liberar PID 100 y 102]
+        TF7[Mostrar huecos]
+        TF8[Asignar PID 103 con Best-Fit]
+        TF9[Compactar memoria]
+        TF10[Mostrar estado final]
+
+        TF1 --> TF2 --> TF3 --> TF4 --> TF5 --> TF6 --> TF7 --> TF8 --> TF9 --> TF10
+    end
+
+    %% TEST 4
+    subgraph TC["Test 4: Memoria Compartida"]
+        TC1[Crear Kernel]
+        TC2[Crear Editor]
+        TC3[Crear Visor 1]
+        TC4[Crear Visor 2]
+        TC5[Crear región compartida]
+        TC6[Adjuntar Visor 1]
+        TC7[Adjuntar Visor 2]
+        TC8[Mostrar memoria]
+        TC9[Desadjuntar Visor 1]
+        TC10[Desadjuntar Visor 2]
+        TC11[Desadjuntar Editor]
+        TC12[Mostrar memoria]
+        TC13[Ejecutar 15 ticks]
+
+        TC1 --> TC2 --> TC3 --> TC4 --> TC5 --> TC6 --> TC7 --> TC8 --> TC9 --> TC10 --> TC11 --> TC12 --> TC13
+    end
+
+    %% TEST 5
+    subgraph TW["Test 5: Swapping"]
+        TW1[Crear Kernel]
+        TW2[Crear Proceso X]
+        TW3[Crear Proceso Y]
+        TW4[Mostrar tabla de páginas]
+        TW5[Swap Out X]
+        TW6[Mostrar memoria]
+        TW7[Swap In X]
+        TW8[Mostrar memoria]
+        TW9[Ejecutar 25 ticks]
+
+        TW1 --> TW2 --> TW3 --> TW4 --> TW5 --> TW6 --> TW7 --> TW8 --> TW9
+    end
+
+    %% TEST 6
+    subgraph TI["Test 6: Integración completa"]
+        TI1[Crear Kernel]
+        TI2[Crear procesos IO]
+        TI3[Mostrar memoria]
+        TI4[Crear directorios]
+        TI5[Crear archivo sistema.log]
+        TI6[Abrir archivo]
+        TI7[Registrar dispositivos]
+        TI8[Solicitar operaciones de E/S]
+        TI9[Mostrar dispositivos]
+        TI10[Listar directorio]
+        TI11[Ejecutar 20 ticks]
+        TI12[Mostrar memoria final]
+        TI13[Cerrar archivo]
+        TI14[Mostrar estado final]
+
+        TI1 --> TI2 --> TI3 --> TI4 --> TI5 --> TI6 --> TI7 --> TI8 --> TI9 --> TI10 --> TI11 --> TI12 --> TI13 --> TI14
+    end
+
+    C -.-> TP1
+    D -.-> TS1
+    E -.-> TF1
+    F -.-> TC1
+    G -.-> TW1
+    H -.-> TI1
+```
+
+### Flujo de ejecución (simplificado)
+
+
+```mermaid
+flowchart TD
+    A([Inicio])
+    B[Ejecutar pruebas del sistema operativo]
+    C[Gestión de Procesos]
+    D[Gestión de Memoria]
+    E[Sistema de Archivos y E/S]
+    F[Mostrar resultados]
+    G([Fin])
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+```
 
 ---
 
@@ -974,10 +1342,61 @@ Array físico [1024 KB] (cada pos = 32 KB):
 ---
 
 ## Conclusiones
-[Acá iria anexo también el apartado de las desiciones técnicas importantes en un párrafo]
+
+El desarrollo del kernel didáctico ha alcanzado de manera exitosa los objetivos planteados, proporcionando un entorno educativo completo que permite entender de forma práctica la estructura, el funcionamiento y la interoperabilidad de un kernel. La simulación integra todos los módulos principales —Scheduler, Gestor de Memoria, Sistema de Archivos, Gestor de E/S y Controlador de Interrupciones— mostrando cómo interactúan entre sí y cómo se gestionan los recursos del sistema.
+
+### Logros generales:
+
+1. **Interoperabilidad y flujo de procesos:**  
+   - Los procesos se gestionan mediante transiciones entre los estados `NEW`, `READY`, `RUNNING`, `BLOCKED` y `TERMINATED`.  
+   - Las solicitudes de E/S bloquean y desbloquean procesos de manera coherente, mostrando la coordinación entre scheduler, gestor de E/S y controlador de interrupciones.
+
+2. **Gestión de memoria visual y didáctica:**  
+   - Se implementaron segmentación, paginación y swapping, permitiendo observar cómo se asigna, libera y mueve memoria entre procesos.  
+   - Los usuarios pueden comprender la fragmentación y la eficiencia del uso de memoria.
+
+3. **Sistema de archivos y control de recursos:**  
+   - La creación, apertura, cierre y listado de archivos/directorios demuestra la interacción de los procesos con los recursos del kernel.  
+   - Los FCB y NodoDirectorio permiten un entendimiento claro de la estructura de archivos dentro del kernel.
+
+4. **Gestión de E/S y simulación de interrupciones:**  
+   - La implementación de colas FIFO y el uso de interrupciones simulan fielmente la dinámica de procesos bloqueados y desbloqueados por dispositivos.  
+   - Permite visualizar cómo los procesos interactúan con la E/S de manera concurrente y ordenada.
+
+5. **Portabilidad y enfoque educativo:**  
+   - El kernel funciona tanto en Windows como en Linux, manteniendo consistencia en la ejecución y mostrando la interoperabilidad de los módulos.  
+   - La simulación está diseñada para que los usuarios comprendan conceptos fundamentales de kernels de manera clara y visual.
+
+### Decisiones técnicas y algoritmos:
+
+1. **Arquitectura monolítica modular:**  
+   - Se adoptó una arquitectura monolítica modular, integrando todos los componentes principales en un solo núcleo pero organizados en módulos independientes.  
+   - Esta decisión se tomó para que la simulación refleje **lo más cercano posible a un kernel real**, manteniendo la coherencia y la interacción entre módulos mientras se facilita la comprensión didáctica.
+
+2. **Scheduler Round-Robin:**  
+   - Elegido por su simplicidad y equidad en la distribución de CPU, mostrando cómo se manejan los procesos de manera periódica y cómo se alternan entre estados.
+
+3. **Algoritmos de asignación de memoria (First-Fit y Best-Fit):**  
+   - First-Fit permite una asignación rápida y comprensible, ideal para fines educativos.  
+   - Best-Fit demuestra la optimización del uso de memoria, minimizando fragmentación y mostrando decisiones de eficiencia en la asignación de recursos.
+
+4. **Segmentación, paginación y swapping:**  
+   - Representan la memoria lógica y física, enseñando traducción de direcciones y protección de memoria.  
+   - Swapping ilustra cómo los procesos mayores que la memoria física pueden ejecutarse usando memoria secundaria.
+
+5. **Gestión de archivos y E/S:**  
+   - La utilización de FCB, NodoDirectorio y colas FIFO permite demostrar cómo los procesos acceden a archivos y dispositivos.  
+   - Las interrupciones y desbloqueos automáticos muestran la coordinación entre procesos y recursos del kernel de manera didáctica.
+
+En conclusión, el proyecto combina **una arquitectura coherente, algoritmos representativos y una simulación funcional**, ofreciendo una herramienta educativa robusta. Cada decisión técnica fue tomada para maximizar la claridad, la comprensión y la demostración de los principios fundamentales de los sistemas operativos, permitiendo a los usuarios experimentar con los conceptos de kernel de manera práctica, visual y segura.
 
 ---
 
 ## Anexos
 
-[Propongo dejar aqui los diagramas]
+El código fuente del proyecto y copias renderizadas de los diagramas se encuentran consignadas en el siguiente repositorio:
+
+
+[Repositorio simulación de Kernel en Github](https://github.com/HanaU3U/SO)
+
+
