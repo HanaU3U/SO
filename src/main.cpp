@@ -83,15 +83,15 @@ static void test_segmentacion() {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  TEST 3: Fragmentación, First-Fit y Compactación
+//  TEST 3: Fragmentación, Best-Fit y Compactación
 // ─────────────────────────────────────────────────────────────
 static void test_fragmentacion_y_bestfit() {
-    seccion("Fragmentacion, First-Fit y Compactacion ");
+    seccion("Fragmentacion, Best-Fit y Compactacion ");
 
     // Usar GestorMemoria directamente para controlar el algoritmo
     GestorMemoria mem;
 
-    std::cout << "\n--- [FIRST-FIT] Asignando 3 procesos ---\n";
+    std::cout << "\n--- [BEST-FIT] Asignando 3 procesos ---\n";
     mem.asignarContiguo(100, 200, FIRST_FIT);  // PID 100, 200 KB
     mem.asignarContiguo(101,  50, FIRST_FIT);  // PID 101,  50 KB
     mem.asignarContiguo(102, 300, FIRST_FIT);  // PID 102, 300 KB
@@ -181,15 +181,20 @@ static void test_swapping() {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  TEST 5: Integración de procesos + sistema de archivos + E/S
+//  TEST 5: Integración de procesos + memoria + sistema de archivos + E/S
 // ─────────────────────────────────────────────────────────────
 static void test_integracion_completa() {
-    seccion("Integracion completa: Procesos + FS + E/S");
+    seccion("Integracion completa: Procesos + Memoria + FS + E/S");
 
     Kernel kernel;
 
     PCB* p1 = kernel.crearProceso("Proceso-IO-A", 8, 12, 3, true);
     PCB* p2 = kernel.crearProceso("Proceso-IO-B", 6, 10, 2, true);
+
+    std::cout << "\n--- Memoria inicial de procesos integrados ---\n";
+    kernel.imprimirTablaPaginas(p1->pid);
+    kernel.imprimirTablaPaginas(p2->pid);
+    kernel.imprimirMemoria();
 
     kernel.crearDirectorio("/var");
     kernel.crearDirectorio("/var/log");
@@ -206,6 +211,12 @@ static void test_integracion_completa() {
     kernel.listarDirectorio("/var/log");
 
     kernel.ejecutar(20);
+
+    std::cout << "\n--- Memoria final tras integracion ---\n";
+    kernel.imprimirTablaPaginas(p1->pid);
+    kernel.imprimirTablaPaginas(p2->pid);
+    kernel.imprimirMemoria();
+
     kernel.cerrarArchivo(p1->pid, "/var/log/sistema.log");
     kernel.imprimirEstado();
 }

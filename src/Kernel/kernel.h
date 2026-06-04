@@ -70,8 +70,8 @@ public:
     void imprimirMemoria() const;
     void imprimirTablaPaginas(int pid) const;
     void imprimirSegmentos(int pid) const;
-    void mostrarFragmentacion() const;  // Día 7
-    void compactar();                   // Día 7
+    void mostrarFragmentacion() const;  
+    void compactar();                 
 
 private:
     Scheduler    scheduler_;
