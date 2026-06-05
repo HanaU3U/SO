@@ -5,7 +5,7 @@
 >Sistemas Operativos - Grupo 020-82  
 >Autores:
 >> - Tomás Alejandro Delgado Ortíz - 20221020045
->>- Hana Sofía Pinilla Manrique -
+>>- Hana Sofía Pinilla Manrique - 20221020092
 >>- Ana Laura Morcote Chacón - 20221020010
 
 ---
