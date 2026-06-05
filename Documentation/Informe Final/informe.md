@@ -427,7 +427,476 @@ flowchart TD
 ---
 
 ## Estructuras de Datos
-[Descripción breve de las clases]
+
+Esta sección describe las principales estructuras de datos utilizadas en el mini-kernel, organizadas por subsistema. Cada estructura fue diseñada para representar fielmente los componentes equivalentes en un kernel real, manteniendo simplicidad y claridad con fines didácticos.
+
+---
+
+### 1. Gestión de Archivos
+
+#### FCB (Bloque de Control de Archivo)
+
+Representa un archivo en el sistema de archivos virtual. Cada archivo del árbol de directorios posee exactamente un FCB asociado.
+
+```cpp
+struct FCB {
+    std::string nombre;
+    std::string tipo;
+    int tamanoKB;
+    int bloqueDatos;
+    std::string fechaCreacion;
+    std::string fechaModificacion;
+    std::string permisos;
+    bool abierto;
+    int aperturasActivas;
+};
+```
+
+| Campo | Descripción |
+|-------|-------------|
+| `nombre` | Nombre del archivo. |
+| `tipo` | Extensión o tipo de contenido (ej. `"texto"`, `"binario"`). |
+| `tamanoKB` | Tamaño lógico en KiB. |
+| `bloqueDatos` | Índice del bloque de datos en el almacenamiento simulado (-1 si no asignado). |
+| `fechaCreacion`, `fechaModificacion` | Fechas en formato ISO 8601 (precisión de segundos). |
+| `permisos` | Cadena de permisos estilo UNIX (ej. `"rw-"`). |
+| `abierto` | Indica si el archivo está abierto actualmente. |
+| `aperturasActivas` | Contador de aperturas simultáneas (soporta acceso concurrente). |
+
+---
+
+#### NodoDirectorio
+
+Nodo de un árbol de directorios. Puede representar tanto un directorio como un archivo.
+
+```cpp
+struct NodoDirectorio {
+    bool esDirectorio;
+    std::string nombre;
+    FCB fcb;   // solo significativo si es archivo
+    std::unordered_map<std::string, std::unique_ptr<NodoDirectorio>> hijos;
+};
+```
+
+| Campo | Descripción |
+|-------|-------------|
+| `esDirectorio` | `true` si representa un directorio, `false` si es un archivo. |
+| `nombre` | Nombre del componente (directorio o archivo). |
+| `fcb` | Si es un archivo, contiene su bloque de control; en directorios no se usa. |
+| `hijos` | Mapa de nombre → nodo hijo (puntero único). Contiene subdirectorios y archivos. |
+
+---
+
+#### SistemaArchivos
+
+Clase que gestiona la estructura de directorios en memoria.
+
+**Atributos privados relevantes:**
+
+- `raiz_` — `unique_ptr<NodoDirectorio>` que apunta al directorio raíz (`"/"`).
+- `abiertosPorProceso_` — `unordered_map<int, unordered_set<string>>` que asocia cada PID con el conjunto de rutas de archivos abiertos por ese proceso.
+
+**Métodos principales:**
+
+- Creación de directorios y archivos.
+- Apertura/cierre de archivos por proceso (mantiene el mapa de abiertos).
+- Navegación por ruta (método `navegar`).
+- Listado de contenido de directorios.
+
+---
+
+### 2. Entrada / Salida
+
+#### EstadoDispositivo
+
+Enumeración que indica el estado de un dispositivo.
+
+```cpp
+enum class EstadoDispositivo { LIBRE, OCUPADO };
+```
+
+---
+
+#### SolicitudES
+
+Representa una petición de E/S encolada en un dispositivo.
+
+```cpp
+struct SolicitudES {
+    int pid;
+    std::string nombreDispositivo;
+    std::string operacion;
+    int duracionTicks;
+    int ticksRestantes;
+};
+```
+
+| Campo | Descripción |
+|-------|-------------|
+| `pid` | Proceso que solicita la operación. |
+| `nombreDispositivo` | Dispositivo destino. |
+| `operacion` | Descripción de la operación (ej. `"lectura"`, `"escritura"`). |
+| `duracionTicks` | Duración total de la operación en ticks de reloj. |
+| `ticksRestantes` | Ticks que faltan para completar la operación. |
+
+---
+
+#### EventoInterrupcion
+
+Estructura que transporta la notificación de finalización de una E/S.
+
+```cpp
+struct EventoInterrupcion {
+    int pid;
+    std::string nombreDispositivo;
+    std::string detalle;
+};
+```
+
+| Campo | Descripción |
+|-------|-------------|
+| `pid` | Proceso que debe ser desbloqueado. |
+| `nombreDispositivo` | Dispositivo que generó la interrupción. |
+| `detalle` | Mensaje descriptivo de la finalización. |
+
+---
+
+#### DispositivoES
+
+Modela un periférico simulado.
+
+```cpp
+struct DispositivoES {
+    std::string nombre;
+    std::string tipo;
+    EstadoDispositivo estado;
+    std::queue<SolicitudES> colaSolicitudes;
+    bool tieneSolicitudActiva;
+    SolicitudES solicitudActiva;
+};
+```
+
+| Campo | Descripción |
+|-------|-------------|
+| `nombre` | Identificador único del dispositivo. |
+| `tipo` | Clase de dispositivo (ej. `"disco"`, `"teclado"`). |
+| `estado` | `LIBRE` u `OCUPADO`. |
+| `colaSolicitudes` | Cola FIFO de peticiones pendientes. |
+| `tieneSolicitudActiva` | Indica si el dispositivo está procesando una solicitud. |
+| `solicitudActiva` | Copia de la solicitud en curso. |
+
+---
+
+#### GestorES
+
+Administra el conjunto de dispositivos y las interrupciones generadas.
+
+**Atributos privados:**
+
+- `dispositivos_` — `unordered_map<string, DispositivoES>` que mapea nombre a dispositivo.
+- `interrupcionesPendientes_` — `queue<EventoInterrupcion>` con los eventos de finalización de E/S aún no despachados.
+
+---
+
+### 3. Interrupciones
+
+#### ControladorInterrupciones
+
+Clase encargada de consumir los eventos del `GestorES` y desbloquear procesos. No define nuevas estructuras propias; utiliza `GestorES` y `Scheduler` para realizar el despacho de eventos y las transiciones de estado BLOCKED → READY.
+
+---
+
+### 4. Memoria
+
+#### Constantes del sistema de memoria
+
+| Constante | Valor | Descripción |
+|-----------|-------|-------------|
+| `MEMORIA_TOTAL` | 1024 KiB | RAM simulada total. |
+| `TAMANO_PAGINA` | 4 KiB | Tamaño de cada página/marco. |
+| `NUM_MARCOS` | 256 | Número de marcos físicos (1024/4). |
+| `TAMANO_SWAP` | 2048 KiB | Espacio de swapping disponible. |
+
+---
+
+#### AlgoritmoAsignacion
+
+```cpp
+enum AlgoritmoAsignacion { FIRST_FIT, BEST_FIT };
+```
+
+Define la política de búsqueda en alocación contigua.
+
+---
+
+#### PaginaEntry
+
+Entrada de la tabla de páginas de un proceso.
+
+```cpp
+struct PaginaEntry {
+    int  marcoFisico;   // -1 si no presente en RAM
+    bool presente;
+    bool modificada;
+    bool referenciada;
+    int  swapOffset;    // -1 si no está en swap
+};
+```
+
+| Campo | Descripción |
+|-------|-------------|
+| `marcoFisico` | Número de marco en RAM (-1 si no está presente). |
+| `presente` | `true` si la página está cargada en RAM. |
+| `modificada` | Bit de suciedad (*dirty bit*). |
+| `referenciada` | Bit de referencia (para algoritmos de reemplazo). |
+| `swapOffset` | Posición en el área de swap (en páginas); -1 si no está en disco. |
+
+---
+
+#### BloqueMemoria
+
+Representa un bloque contiguo en el mapa de memoria física (usado en alocación contigua).
+
+```cpp
+struct BloqueMemoria {
+    int  inicio;
+    int  tamano;
+    bool libre;
+    int  pidDueno;  // -1 si libre
+};
+```
+
+| Campo | Descripción |
+|-------|-------------|
+| `inicio` | Dirección base en KiB. |
+| `tamano` | Tamaño en KiB. |
+| `libre` | Si el bloque está disponible. |
+| `pidDueno` | PID del proceso propietario (-1 si libre). |
+
+---
+
+#### Segmento
+
+Estructura que modela un segmento de memoria (para segmentación).
+
+```cpp
+struct Segmento {
+    std::string nombre;
+    int base;
+    int limite;
+    bool soloLectura;
+};
+```
+
+| Campo | Descripción |
+|-------|-------------|
+| `nombre` | Identificador lógico: `"codigo"`, `"datos"`, `"pila"`. |
+| `base` | Dirección física donde comienza el segmento. |
+| `limite` | Tamaño en KiB. |
+| `soloLectura` | Indica protección de solo lectura. |
+
+---
+
+#### RegionCompartida
+
+Representa una región de memoria compartida entre procesos.
+
+```cpp
+struct RegionCompartida {
+    int              id;
+    int              base;
+    int              tamano;
+    std::vector<int> procesos;  // PIDs que la comparten
+    int              refCount;
+};
+```
+
+| Campo | Descripción |
+|-------|-------------|
+| `id` | Identificador único de la región. |
+| `base` | Dirección física de la región. |
+| `tamano` | Tamaño en KiB. |
+| `procesos` | Lista de PIDs que actualmente tienen la región adjuntada. |
+| `refCount` | Número de referencias activas. |
+
+---
+
+#### GestorMemoria
+
+Clase central de administración de memoria. Integra todos los modelos de gestión de memoria del kernel.
+
+**Atributos privados principales:**
+
+| Atributo | Tipo | Descripción |
+|----------|------|-------------|
+| `celdas_` | `std::array<int, MEMORIA_TOTAL>` | Representa cada KiB de RAM; almacena el PID del dueño (-1 si libre). |
+| `bloques_` | `std::vector<BloqueMemoria>` | Lista de bloques libres/ocupados para alocación contigua. |
+| `tablaSegmentos_` | `unordered_map<int, vector<Segmento>>` | Asocia PID a su tabla de segmentos. |
+| `tablaPaginas_` | `unordered_map<int, vector<PaginaEntry>>` | Asocia PID a su tabla de páginas. |
+| `marcos_` | `std::vector<int>` | Un elemento por marco físico; guarda el PID propietario (-1 libre). |
+| `swapMap_` | `unordered_map<int, vector<int>>` | Mapea PID a sus offsets en swap. |
+| `swapLibre_` | `std::vector<bool>` | Marca los slots de swap (páginas) disponibles. |
+| `regionesCompartidas_` | `std::vector<RegionCompartida>` | Todas las regiones compartidas existentes. |
+| `siguienteRegionId_` | `int` | Contador para asignar IDs a nuevas regiones. |
+
+---
+
+### 5. Procesos
+
+#### ProcessState
+
+Enumeración de los estados de un proceso.
+
+```cpp
+enum ProcessState {
+    NEW,        // Recién creado
+    READY,      // Listo para ejecutar
+    RUNNING,    // En ejecución
+    BLOCKED,    // Bloqueado (por E/S u otro recurso)
+    TERMINATED  // Finalizado
+};
+```
+
+---
+
+#### PCB (Bloque de Control de Proceso)
+
+Almacena toda la información necesaria para gestionar un proceso.
+
+```cpp
+struct PCB {
+    int pid;
+    std::string name;
+    ProcessState state;
+    int cpuTimeRemaining;
+    int cpuTimeUsed;
+    time_t creationTime;
+    int timeQuantum;
+};
+```
+
+| Campo | Descripción |
+|-------|-------------|
+| `pid` | Identificador único del proceso (autoasignado). |
+| `name` | Nombre lógico del proceso. |
+| `state` | Estado actual: NEW, READY, RUNNING, BLOCKED o TERMINATED. |
+| `cpuTimeRemaining` | Tiempo total de CPU necesario para terminar. |
+| `cpuTimeUsed` | Tiempo de CPU consumido hasta el momento. |
+| `creationTime` | Marca de tiempo de creación. |
+| `timeQuantum` | Valor del quantum asignado (para Round-Robin). |
+
+---
+
+#### Scheduler
+
+Planificador de procesos con política Round-Robin.
+
+**Atributos privados:**
+
+| Atributo | Tipo | Descripción |
+|----------|------|-------------|
+| `readyQueue` | `std::queue<PCB*>` | Cola de procesos en estado READY. |
+| `allProcesses` | `std::vector<PCB*>` | Contiene todos los procesos creados (gestión de memoria de los PCB). |
+| `runningProcess` | `PCB*` | Puntero al proceso actualmente en RUNNING. |
+| `nextPID` | `int` | Contador para asignar nuevos PID (inicia en 1000). |
+| `currentTime` | `int` | Reloj del simulador. |
+
+**Transiciones de estado implementadas:**
+
+```
+NEW → READY → RUNNING → READY (quantum agotado)
+                      → BLOCKED (solicitud E/S)
+                      → TERMINATED (fin de CPU)
+BLOCKED → READY (interrupción)
+```
+
+---
+
+### 6. Kernel (Integración)
+
+#### InfoMemoriaProceso
+
+Información auxiliar que el Kernel asocia a cada proceso para la gestión de memoria.
+
+```cpp
+struct InfoMemoriaProceso {
+    int  baseContigua;  // Dirección base si usa alocación contigua (-1 si no)
+    int  numPaginas;    // Número de páginas asignadas (0 si usa contiguo)
+    bool usaPaginacion; // true = paginación, false = segmentación contigua
+};
+```
+
+---
+
+#### Kernel
+
+Clase principal que coordina todos los subsistemas del mini-kernel.
+
+**Atributos privados:**
+
+| Atributo | Descripción |
+|----------|-------------|
+| `scheduler_` | Instancia del `Scheduler`. |
+| `memoria_` | Instancia del `GestorMemoria`. |
+| `fs_` | Instancia del `SistemaArchivos`. |
+| `gestorES_` | Instancia del `GestorES`. |
+| `controladorInterrupciones_` | Instancia del `ControladorInterrupciones`. |
+| `siguienteBloqueDatos_` | Contador para asignar bloques de datos en el sistema de archivos. |
+| `infoMemoria_` | `unordered_map<int, InfoMemoriaProceso>` que mapea PID a la información de memoria del proceso. |
+
+**Métodos expuestos:**
+
+| Categoría | Métodos |
+|-----------|---------|
+| Ciclo de vida de procesos | `crearProceso`, `terminarProceso` |
+| Memoria compartida | `crearMemoriaCompartida`, `adjuntarMemoriaCompartida`, `desadjuntarMemoriaCompartida` |
+| Swapping | `swapOut`, `swapIn` |
+| Sistema de archivos | `crearDirectorio`, `crearArchivo`, `abrirArchivo`, `cerrarArchivo`, `listarDirectorio` |
+| E/S | `registrarDispositivo`, `solicitarIO`, `imprimirDispositivos` |
+| Ejecución | `ejecutar(tiempoTotal)` |
+| Diagnóstico | Impresión de estado, memoria, tablas de páginas, segmentos, fragmentación, compactación |
+
+---
+
+### Relaciones entre Estructuras
+
+```mermaid
+graph TD
+    Kernel --> Scheduler
+    Kernel --> GestorMemoria
+    Kernel --> SistemaArchivos
+    Kernel --> GestorES
+    Kernel --> ControladorInterrupciones
+    Kernel --> InfoMemoriaProceso
+
+    Scheduler --> PCB
+    Scheduler --> readyQueue["readyQueue (queue&lt;PCB*&gt;)"]
+
+    SistemaArchivos --> NodoDirectorio
+    NodoDirectorio --> FCB
+    SistemaArchivos --> abiertosPorProceso["abiertosPorProceso (PID→rutas)"]
+
+    GestorES --> DispositivoES
+    DispositivoES --> SolicitudES
+    GestorES --> EventoInterrupcion
+
+    ControladorInterrupciones --> GestorES
+    ControladorInterrupciones --> Scheduler
+
+    GestorMemoria --> BloqueMemoria
+    GestorMemoria --> PaginaEntry
+    GestorMemoria --> Segmento
+    GestorMemoria --> RegionCompartida
+```
+
+**Resumen de dependencias:**
+
+- El **`Scheduler`** posee una cola de punteros a `PCB` y un vector que contiene todos los `PCB` creados. Los `PCB` mantienen el estado del proceso y el tiempo de CPU restante.
+- **`GestorMemoria`** utiliza `celdas_` (array físico), `bloques_` (contiguo), `tablaPaginas_` y `marcos_` (paginación), `tablaSegmentos_` (segmentación) y `regionesCompartidas_` (compartición). Cada proceso puede tener asociado uno de estos modelos mediante `InfoMemoriaProceso`.
+- El **`SistemaArchivos`** construye un árbol de `NodoDirectorio`; los archivos hoja contienen un `FCB`. El mapa `abiertosPorProceso_` relaciona PIDs con rutas abiertas.
+- El **`GestorES`** mantiene un mapa de `DispositivoES` y cada dispositivo tiene una cola FIFO de `SolicitudES`. Al terminar una operación se genera un `EventoInterrupcion` que se encola en `interrupcionesPendientes_`.
+- El **`ControladorInterrupciones`** consume esa cola, identifica el PID y llama al `Scheduler` para desbloquear el proceso (transición BLOCKED → READY).
+- La clase **`Kernel`** aglutina todos los subsistemas y ofrece una interfaz unificada. Cada vez que se crea un proceso se le asigna memoria y se registra en `infoMemoria_`; al terminarlo se liberan todos sus recursos (memoria, archivos abiertos, E/S pendiente).
 
 ---
 
