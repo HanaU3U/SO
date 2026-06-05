@@ -6,7 +6,7 @@
 >Autores:
 >> - Tomás Alejandro Delgado Ortíz - 20221020045
 >>- Hana Sofía Pinilla Manrique -
->>- Ana Laura Morcote Chacón -
+>>- Ana Laura Morcote Chacón - 20221020010
 
 ---
 
