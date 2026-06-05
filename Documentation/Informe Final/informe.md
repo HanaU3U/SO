@@ -428,9 +428,12 @@ flowchart TD
 
 ## Estructuras de Datos
 
-Esta sección describe las principales estructuras de datos utilizadas en el mini-kernel, organizadas por subsistema. Cada estructura fue diseñada para representar fielmente los componentes equivalentes en un kernel real, manteniendo simplicidad y claridad con fines didácticos.
-
----
+- **`Scheduler:`** Posee una cola de punteros a `PCB` y un vector que contiene todos los `PCB` creados. Los `PCB` mantienen el estado del proceso y el tiempo de CPU restante.
+- **`GestorMemoria:`** Utiliza `celdas_` (array físico), `bloques_` (contiguo), `tablaPaginas_` y `marcos_` (paginación), `tablaSegmentos_` (segmentación) y `regionesCompartidas_` (compartición). Cada proceso puede tener asociado uno de estos modelos mediante `InfoMemoriaProceso`.
+- **`SistemaArchivos:`** Construye un árbol de `NodoDirectorio`; los archivos hoja contienen un `FCB`. El mapa `abiertosPorProceso_` relaciona PIDs con rutas abiertas.
+- **`GestorES:`** Mantiene un mapa de `DispositivoES` y cada dispositivo tiene una cola FIFO de `SolicitudES`. Al terminar una operación se genera un `EventoInterrupcion` que se encola en `interrupcionesPendientes_`.
+- **`ControladorInterrupciones:`** Consume esa cola, identifica el PID y llama al `Scheduler` para desbloquear el proceso (transición BLOCKED → READY).
+- **`Kernel:`** Aglutina todos los subsistemas y ofrece una interfaz unificada. Cada vez que se crea un proceso se le asigna memoria y se registra en `infoMemoria_`; al terminarlo se liberan todos sus recursos (memoria, archivos abiertos, E/S pendiente).
 
 ### 1. Gestión de Archivos
 
@@ -888,15 +891,6 @@ graph TD
     GestorMemoria --> Segmento
     GestorMemoria --> RegionCompartida
 ```
-
-**Resumen de dependencias:**
-
-- El **`Scheduler`** posee una cola de punteros a `PCB` y un vector que contiene todos los `PCB` creados. Los `PCB` mantienen el estado del proceso y el tiempo de CPU restante.
-- **`GestorMemoria`** utiliza `celdas_` (array físico), `bloques_` (contiguo), `tablaPaginas_` y `marcos_` (paginación), `tablaSegmentos_` (segmentación) y `regionesCompartidas_` (compartición). Cada proceso puede tener asociado uno de estos modelos mediante `InfoMemoriaProceso`.
-- El **`SistemaArchivos`** construye un árbol de `NodoDirectorio`; los archivos hoja contienen un `FCB`. El mapa `abiertosPorProceso_` relaciona PIDs con rutas abiertas.
-- El **`GestorES`** mantiene un mapa de `DispositivoES` y cada dispositivo tiene una cola FIFO de `SolicitudES`. Al terminar una operación se genera un `EventoInterrupcion` que se encola en `interrupcionesPendientes_`.
-- El **`ControladorInterrupciones`** consume esa cola, identifica el PID y llama al `Scheduler` para desbloquear el proceso (transición BLOCKED → READY).
-- La clase **`Kernel`** aglutina todos los subsistemas y ofrece una interfaz unificada. Cada vez que se crea un proceso se le asigna memoria y se registra en `infoMemoria_`; al terminarlo se liberan todos sus recursos (memoria, archivos abiertos, E/S pendiente).
 
 ---
 
